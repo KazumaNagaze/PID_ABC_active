@@ -21,14 +21,14 @@ def target_value(t):
     # 例: 1.0（一定の目標値）
     return 1.0
 
-# 目的関数の定義
+# 評価の定義
 def objective_function(Kp, Ki, Kd, t):
     # シミュレーション時間の範囲を設定（例: 0から10秒まで）
     t_min = 0
     t_max = 10
 
     # 目的関数の積分を計算
-    result, _ = quad(lambda t: (target_value(t) - simulate())**2, t_min, t_max)
+    result, _ = quad(lambda t: (target_value(t) - simulate(t))**2, t_min, t_max)
     return result
 
 # 評価関数を定義
@@ -41,33 +41,6 @@ def fitness_function(Kp, Ki, Kd, t):
     
     return fitness_value
 
-# ABCアルゴリズムで最適なPIDパラメータを推定する部分
-#３Dグラフの定義
-fig = plt.figure(figsize=(6, 6))
-ax = fig.add_subplot(111, projection='3d')
-ax.set_xlabel('Kp')
-ax.set_xlabel('Ki')
-ax.set_xlabel('Kd')
-K_p = np.arange(0, 10)
-K_i = np.arange(0, 10)
-K_d = np.arange(0, 10)
-X, Y, Z = np.meshgrid(K_p, K_i, K_d)
- 
-# 初期設定
-N = 100 # 働き蜂と傍観蜂の個体数
-d = 3 # 次元
-s = np.zeros(N) #更新カウント
-lim = 30
-xmax  = 500
-xmin =0
-G = 300 # 繰り返す回数
- 
-x_best = [0,0,0] #x_bestの初期化
-
-x = np.zeros((N,d)) #蜂の配置
-for i in range(N):
-    x[i] = (xmax-xmin)*np.random.rand(d) + xmin
- 
 # ルーレット選択用関数
 def roulette_choice(w):
     tot = []
@@ -81,79 +54,107 @@ def roulette_choice(w):
         if r <= e:
             return i
 
- 
-# 繰り返し
-best_value = []
-x_best_value = [0, 0, 0]
-ims = []
-for g in range(G):
-    # 働き蜂employee bee step
-    for i in range(N):
-        v = x.copy()
-        k = i
-        while k == i:
-            k = np.random.randint(N)
-        j = np.random.randint(d)
-        r = np.random.rand()*2 - 1 # -1から1までの一様乱数
-        v[i,j] = x[i,j] + r * (x[i,j] - x[k,j])
- 
-        if fitness_function(*x[i], g) < fitness_function(*v[i], g): #適合度に基づいて働き蜂の情報を更新
-            x[i] = v[i]
-        if fitness_function(*x[i], g) <= fitness_function(*v[i], g):
-            s[i] = 0
-        else: s[i] += 1
- 
-    # 傍観蜂onlooker bee step
-    w = []
-    for i in range(N):
-        w.append(fitness_function(*x[i], g))
+# ABCアルゴリズムで最適なPIDパラメータを推定する関数
+def ABC_algo():
+    '''
+    #３Dグラフの定義
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel('Kp')
+    ax.set_xlabel('Ki')
+    ax.set_xlabel('Kd')
+    K_p = np.arange(0, 10)
+    K_i = np.arange(0, 10)
+    K_d = np.arange(0, 10)
+    X, Y, Z = np.meshgrid(K_p, K_i, K_d)
+    '''
+    # 初期設定
+    N = 100 # 働き蜂と傍観蜂の個体数
+    d = 3 # 次元
+    s = np.zeros(N) #更新カウント
+    lim = 30
+    xmax  = 100
+    xmin =0
+    G = 300 # 繰り返す回数
     
-    for l in range(N):
-        i = roulette_choice(w)
-        j = np.random.randint(d)
-        r = np.random.rand()*2 - 1 # -1から1までの一様乱数
-        v[i,j] = x[i,j] + r * (x[i,j] - x[k,j])
-        if fitness_function(*x[i], g) < fitness_function(*v[i], g):
-            x[i] = v[i]
-        if fitness_function(*x[i], g) <= fitness_function(*v[i], g):
-            s[i] = 0
-        else: s[i] += 1
- 
- 
-    # 斥候蜂scout bee step
+    x_best = [0,0,0] #x_bestの初期化
+
+    x = np.zeros((N,d)) #蜂の配置
     for i in range(N):
-        if s[i] >= lim:
-            for j in range(d):
-                x[i,j] = np.random.rand()*(xmax-xmin) + xmin
-            s[i] = 0
- 
-    # 最良個体の発見
-    z = np.zeros(N)
-    best = float('-inf')  # 初期値をマイナス無限大に設定
-    for i in range(N):
-    #    if best > objective_function(*x[i], g): #時変関数に対応させるために削除
-        z[i] = fitness_function(*x[i], g)
-        if z[i] > best:
-            best = max(z)
-            x_best = x[i].copy()
+        x[i] = (xmax-xmin)*np.random.rand(d) + xmin
     
-    best_value.append(objective_function(*x_best, g))
-    x_best_value.append(x_best)
-    print("発見した最適解：{}\nそのときのPIDパラメータ：{}".format(objective_function(*x_best, g), x_best))
-
-    #アニメーションの座標保存
-    im = ax.scatter3D(*x_best, c='r', s=0.5, alpha=0.5)
-    ims.append(im)
-
- 
-# 結果の表示
-# 3D平面上で最適解の座標をプロット
-ax.plot_wireframe(*best_value, color='b', linewidth=0.3, alpha=0.3)   
-ani = animation.ArtistAnimation(fig, ims)
-plt.show()
-#ani.save('./3D-animation.gif', writer='pillow')
-#plt.close()
+    # 繰り返し
+    best_value = []
+    x_best_value = [0, 0, 0]
+    ims = []
+    for g in range(G):
+        # 働き蜂employee bee step
+        for i in range(N):
+            v = x.copy()
+            k = i
+            while k == i:
+                k = np.random.randint(N)
+            j = np.random.randint(d)
+            r = np.random.rand()*2 - 1 # -1から1までの一様乱数
+            v[i,j] = x[i,j] + r * (x[i,j] - x[k,j])
+    
+            if fitness_function(*x[i], g) < fitness_function(*v[i], g): #適合度に基づいて働き蜂の情報を更新
+                x[i] = v[i]
+            if fitness_function(*x[i], g) <= fitness_function(*v[i], g):
+                s[i] = 0
+            else: s[i] += 1
+    
+        # 傍観蜂onlooker bee step
+        w = []
+        for i in range(N):
+            w.append(fitness_function(*x[i], g))
+        
+        for l in range(N):
+            i = roulette_choice(w)
+            j = np.random.randint(d)
+            r = np.random.rand()*2 - 1 # -1から1までの一様乱数
+            v[i,j] = x[i,j] + r * (x[i,j] - x[k,j])
+            if fitness_function(*x[i], g) < fitness_function(*v[i], g):
+                x[i] = v[i]
+            if fitness_function(*x[i], g) <= fitness_function(*v[i], g):
+                s[i] = 0
+            else: s[i] += 1
+    
+    
+        # 斥候蜂scout bee step
+        for i in range(N):
+            if s[i] >= lim:
+                for j in range(d):
+                    x[i,j] = np.random.rand()*(xmax-xmin) + xmin
+                s[i] = 0
+    
+        # 最良個体の発見
+        z = np.zeros(N)
+        best = float('-inf')  # 初期値をマイナス無限大に設定
+        for i in range(N):
+            z[i] = fitness_function(*x[i], g)
+            if z[i] > best:
+                best = max(z)
+                x_best = x[i].copy()
+        
+#       best_value.append(objective_function(*x_best, g))
+#       x_best_value.append(x_best)
+        print("発見した最適解：{}\nそのときのPIDパラメータ：{}".format(objective_function(*x_best, g), x_best))
+    return x_best
 '''
+        #アニメーションの座標保存
+        im = ax.scatter3D(*x_best, c='r', s=0.5, alpha=0.5)
+        ims.append(im)
+
+    
+    # 結果の表示
+    # 3D平面上で最適解の座標をプロット
+    ax.plot_wireframe(*best_value, color='b', linewidth=0.3, alpha=0.3)   
+    ani = animation.ArtistAnimation(fig, ims)
+    plt.show()
+    #ani.save('./3D-animation.gif', writer='pillow')
+    #plt.close()
+
 #最適値をプロット
 plt.plot(range(G), best_value)
 plt.yscale('log')
@@ -177,9 +178,9 @@ def simulate():
     time = np.linspace(0, 10, 1000)
 
     # 制御対象のシステムモデル（二次遅れ系）
-    omega_n = 2.0      # 自然角周波数
-    zeta = 1.5         # 減衰比（1より大きい）
-    system = ctrl.TransferFunction([omega_n**2], [1, 2*zeta*omega_n, omega_n**2])
+    omega_n = 2.0 + 1.0 * np.sin(0.05 * t)      # 自然角周波数
+    damping_ratio = 0.2 + 0.1 * np.sin(0.1 * t)         # 減衰比
+    system = ctrl.TransferFunction([omega_n**2], [2 * damping_ratio * omega_n])
 
     # PID制御器
     controller = ctrl.TransferFunction([Kd, Ki, Kp], [1, 0])
